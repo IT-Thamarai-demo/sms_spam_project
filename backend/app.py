@@ -133,6 +133,9 @@ def predict():
             "data": None
         }), 500
 
+# Load artifacts once at startup
+load_artifacts()
+
 if __name__ == '__main__':
-    load_artifacts()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
