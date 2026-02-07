@@ -1,4 +1,5 @@
 import os
+import sys
 import pickle
 import numpy as np
 import tensorflow as tf
@@ -68,61 +69,43 @@ def health_check():
         "artifacts_loaded": model is not None
     })
 
+import threading
+
+# Global lock for prediction thread safety on Windows
+prediction_lock = threading.Lock()
+
 @app.route('/predict', methods=['POST'])
 def predict():
+    debug_path = r"c:\Users\Asus\Desktop\smstrain\sms_spam_project\backend\backend_debug.txt"
     try:
         data = request.get_json()
         raw_message = data.get('message', '')
         
+        with open(debug_path, "a") as f:
+            f.write(f"\n--- New Request: {raw_message} ---\n")
+            f.flush()
+
         if not raw_message:
-            return jsonify({
-                "status": "error",
-                "message": "No message provided",
-                "data": None
-            }), 400
+            return jsonify({"status": "error", "message": "No message", "data": None}), 400
 
-        if not model or not tokenizer:
-            return jsonify({
-                "status": "error",
-                "message": "Model or Tokenizer not loaded.",
-                "data": None
-            }), 500
-
-        # 1. Preprocess
         clean_text = preprocess_text(raw_message)
-        
-        # 2. Tokenize and Pad
         seq = tokenizer.texts_to_sequences([clean_text])
         padded = pad_sequences(seq, maxlen=MAX_LEN)
         
-        # 3. Predict (prob is the Spam Probability)
-        prob = float(model.predict(padded)[0][0])
+        with prediction_lock:
+            prob = float(model.predict(padded)[0][0])
         
-        # 4. Mandatory Mapping
-        # prediction: If spam probability ≥ 0.5 → "Spam", else "Not Spam"
         is_spam = prob >= 0.5
         prediction_label = "Spam" if is_spam else "Not Spam"
-        
-        # confidence: Float value between 0 and 1
         confidence = prob
-        
-        # confidence_percent: "0% to 100%"
         confidence_percent = f"{int(confidence * 100)}%"
+        risk_level = "High" if confidence > 0.75 else ("Medium" if confidence > 0.5 else "Low")
         
-        # risk_level mapping
-        if confidence < 0.50:
-            risk_level = "Low"
-        elif 0.50 <= confidence <= 0.75:
-            risk_level = "Medium"
-        else:
-            risk_level = "High"
-        
-        # 5. Keywords
         detected_keywords = get_keywords(clean_text)
         
-        response = {
+        return jsonify({
             "status": "success",
-            "message": "Prediction completed successfully",
+            "message": "Success",
             "data": {
                 "prediction": prediction_label,
                 "confidence": round(confidence, 4),
@@ -130,16 +113,15 @@ def predict():
                 "risk_level": risk_level,
                 "detected_keywords": detected_keywords
             }
-        }
-        
-        return jsonify(response)
+        })
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-            "data": None
-        }), 500
+        import traceback
+        with open(debug_path, "a") as f:
+            f.write(f"ERROR: {str(e)}\n")
+            traceback.print_exc(file=f)
+            f.flush()
+        return jsonify({"status": "error", "message": str(e), "data": None}), 500
 
 # Load artifacts once at startup
 load_artifacts()

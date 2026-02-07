@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -66,26 +67,50 @@ public class MainActivity extends AppCompatActivity {
 
     private void performScan() {
         String msg = etMessage.getText().toString().trim();
-        if (msg.isEmpty())
+        if (msg.isEmpty()) {
+            android.util.Log.w("SMS_SPAM", "Scan aborted: empty message");
+            Toast.makeText(this, "Please enter a message to scan", Toast.LENGTH_LONG).show();
             return;
+        }
 
+        android.util.Log.d("SMS_SPAM",
+                "Starting scan for message: " + msg.substring(0, Math.min(50, msg.length())) + "...");
         btnScan.setEnabled(false);
         btnScan.setText("Scanning...");
 
         ApiService service = RetrofitClient.getService();
+        android.util.Log.d("SMS_SPAM", "Making API call to: http://10.173.3.93:5000/predict");
+
         service.predict(new PredictRequest(msg)).enqueue(new Callback<PredictResponse>() {
             @Override
             public void onResponse(Call<PredictResponse> call, Response<PredictResponse> response) {
                 btnScan.setEnabled(true);
                 btnScan.setText(getString(R.string.btn_scan));
 
-                if (response.isSuccessful() && response.body() != null && "success".equals(response.body().status)) {
-                    PredictResponse.PredictData data = response.body().data;
-                    displayResult(data);
-                    dbHelper.insertHistory(msg, data.prediction, data.confidencePercent, data.riskLevel);
+                android.util.Log.d("SMS_SPAM", "API Response received - Code: " + response.code());
+
+                if (response.isSuccessful() && response.body() != null) {
+                    android.util.Log.d("SMS_SPAM", "Response status: " + response.body().status);
+
+                    if ("success".equals(response.body().status)) {
+                        PredictResponse.PredictData data = response.body().data;
+                        android.util.Log.d("SMS_SPAM",
+                                "Prediction: " + data.prediction + ", Confidence: " + data.confidencePercent);
+                        displayResult(data);
+                        dbHelper.insertHistory(msg, data.prediction, data.confidencePercent, data.riskLevel);
+                    } else {
+                        String errorMsg = response.body().message != null ? response.body().message
+                                : "Unknown error from server";
+                        android.util.Log.e("SMS_SPAM", "Server returned error status: " + errorMsg);
+                        Toast.makeText(MainActivity.this, "Server Error: " + errorMsg, Toast.LENGTH_LONG).show();
+                    }
                 } else {
-                    String errorMsg = response.body() != null ? response.body().message : "Error from server";
-                    Toast.makeText(MainActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                    String errorMsg = "Server Error (Code " + response.code() + ")";
+                    if (response.body() != null && response.body().message != null) {
+                        errorMsg += ": " + response.body().message;
+                    }
+                    android.util.Log.e("SMS_SPAM", errorMsg);
+                    Toast.makeText(MainActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                 }
             }
 
@@ -93,7 +118,28 @@ public class MainActivity extends AppCompatActivity {
             public void onFailure(Call<PredictResponse> call, Throwable t) {
                 btnScan.setEnabled(true);
                 btnScan.setText(getString(R.string.btn_scan));
-                Toast.makeText(MainActivity.this, "Connection failed: " + t.getMessage(), Toast.LENGTH_LONG).show();
+
+                android.util.Log.e("SMS_SPAM",
+                        "Connection failed: " + t.getClass().getSimpleName() + " - " + t.getMessage());
+                t.printStackTrace();
+
+                String userMessage = "Connection Failed!\n\n";
+                userMessage += "Error: " + t.getMessage() + "\n\n";
+                userMessage += "Troubleshooting:\n";
+                userMessage += "1. Make sure backend server is running on port 5000\n";
+                userMessage += "2. Make sure phone and PC are on SAME Wi-Fi network\n";
+                userMessage += "3. Check firewall settings\n\n";
+                userMessage += "Current URL: http://10.173.3.93:5000/";
+
+                Toast.makeText(MainActivity.this, "Connection failed - Check logcat for details", Toast.LENGTH_LONG)
+                        .show();
+
+                // Also show in a dialog for better visibility
+                new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Connection Error")
+                        .setMessage(userMessage)
+                        .setPositiveButton("OK", null)
+                        .show();
             }
         });
     }
@@ -123,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
         tvRisk.getBackground().setTint(riskColor);
 
         cgKeywords.removeAllViews();
-        if (data.detectedKeywords != null) {
+        if (data.detectedKeywords != null && !data.detectedKeywords.isEmpty()) {
             for (String kw : data.detectedKeywords) {
                 Chip chip = new Chip(this);
                 chip.setText(kw);
@@ -132,6 +178,30 @@ public class MainActivity extends AppCompatActivity {
                 chip.setChipStrokeColorResource(R.color.grey_light);
                 cgKeywords.addView(chip);
             }
+        } else {
+            Chip chip = new Chip(this);
+            chip.setText("General Patterns");
+            chip.setChipBackgroundColorResource(android.R.color.transparent);
+            chip.setChipStrokeWidth(2f);
+            chip.setChipStrokeColorResource(R.color.grey_light);
+            cgKeywords.addView(chip);
         }
+
+        // Display 4 Bullet Point Explanation
+        LinearLayout layoutExplanation = findViewById(R.id.layoutExplanation);
+        layoutExplanation.removeAllViews();
+        if (data.explanation != null) {
+            for (String point : data.explanation) {
+                TextView bulletPoint = new TextView(this);
+                bulletPoint.setText("• " + point);
+                bulletPoint.setTextSize(14);
+                bulletPoint.setPadding(0, 4, 0, 8);
+                bulletPoint.setTextColor(getResources().getColor(R.color.text_secondary));
+                layoutExplanation.addView(bulletPoint);
+            }
+        }
+
+        cardResult.setAlpha(0f);
+        cardResult.animate().alpha(1f).setDuration(500).start();
     }
 }

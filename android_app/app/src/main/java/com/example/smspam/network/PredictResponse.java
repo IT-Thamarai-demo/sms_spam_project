@@ -22,5 +22,7 @@ public class PredictResponse {
         public String riskLevel;
         @SerializedName("detected_keywords")
         public List<String> detectedKeywords;
+        @SerializedName("explanation")
+        public List<String> explanation;
     }
 }
