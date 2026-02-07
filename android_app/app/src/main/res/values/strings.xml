@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SMS Spam Detector</string>
+    <string name="subtitle_splash">AI Powered Message Safety</string>
+    <string name="title_scan">Scan SMS Message</string>
+    <string name="hint_input">Paste SMS message here...</string>
+    <string name="btn_scan">Scan Message</string>
+    <string name="btn_paste">Paste</string>
+    <string name="title_results">Scan Result</string>
+    <string name="title_history">Scan History</string>
+    <string name="label_spam">SPAM</string>
+    <string name="label_not_spam">NOT SPAM</string>
+    <string name="label_confidence">Confidence: %s</string>
+    <string name="label_risk">Risk Level: %s</string>
+    <string name="label_keywords">Detected Keywords:</string>
+    <string name="no_history">No scan history found.</string>
+</resources>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#FF4081</color>
+    <color name="background">#F8F9FA</color>
+    <color name="black">#000000</color>
+    <color name="grey_light">#E0E0E0</color>
+    <color name="primary">#3F51B5</color>
+    <color name="primary_dark">#303F9F</color>
+    <color name="safe">#43A047</color>
+    <color name="spam">#E53935</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="warning">#FB8C00</color>
+    <color name="white">#FFFFFF</color>
+    <string name="app_name">SMS Spam Detector</string>
+    <string name="btn_paste">Paste</string>
+    <string name="btn_scan">Scan Message</string>
+    <string name="hint_input">Paste SMS message here...</string>
+    <string name="label_confidence">Confidence: %s</string>
+    <string name="label_keywords">Detected Keywords:</string>
+    <string name="label_not_spam">NOT SPAM</string>
+    <string name="label_risk">Risk Level: %s</string>
+    <string name="label_spam">SPAM</string>
+    <string name="no_history">No scan history found.</string>
+    <string name="subtitle_splash">AI Powered Message Safety</string>
+    <string name="title_history">Scan History</string>
+    <string name="title_results">Scan Result</string>
+    <string name="title_scan">Scan SMS Message</string>
+    <style name="Theme.SMSClassifier" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+</resources>
