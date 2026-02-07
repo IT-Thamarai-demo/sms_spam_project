@@ -60,6 +60,14 @@ def get_keywords(text):
         print(f"Error extracting keywords: {e}")
         return []
 
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({
+        "status": "online",
+        "message": "SMS Spam Detector API is running",
+        "artifacts_loaded": model is not None
+    })
+
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
