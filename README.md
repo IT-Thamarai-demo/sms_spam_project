@@ -1,5 +1,7 @@
 # Face SMS Filtering System Using Hybrid CNN–BiLSTM
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/IT-Thamarai-demo/sms_spam_project)
+
 This project implements a state-of-the-art SMS spam and phishing detection system. It features a Hybrid CNN-BiLSTM model trained on a massive dataset of ~78k unique samples.
 
 ## 🚀 Key Features (Proposed System)
