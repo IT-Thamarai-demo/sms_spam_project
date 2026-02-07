@@ -2,10 +2,10 @@ services:
   - type: web
     name: sms-spam-detector-backend
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt && python -m nltk.downloader punkt punkt_tab stopwords wordnet omw-1.4
     startCommand: gunicorn --chdir backend app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.6
-      - key: PORT
-        value: 10000
+        value: "3.11.0"
