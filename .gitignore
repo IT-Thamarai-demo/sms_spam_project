@@ -1,0 +1,25 @@
+# Android
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+local.properties
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Media
+docs/media/*.mp4
+docs/media/*.png
+
+# OS
+.DS_Store
+Thumbs.db
