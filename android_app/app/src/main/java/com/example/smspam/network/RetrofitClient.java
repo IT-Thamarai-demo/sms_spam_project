@@ -11,14 +11,13 @@ public class RetrofitClient {
     private static Retrofit retrofit = null;
 
     // IMPORTANT: Network Configuration
-    // - For EMULATOR: Use "http://10.0.2.2:5000/" (maps to localhost on your PC)
-    // - For PHYSICAL DEVICE: Use your PC's actual IP address, e.g.,
-    // "http://192.168.1.100:5000/"
-    // Find your PC IP with: ipconfig (Windows) or ifconfig (Mac/Linux)
-    // Make sure PC firewall allows port 5000
+    // - For EMULATOR: Use "http://10.0.2.2:5000/"
+    // - For PHYSICAL DEVICE: Use your PC's IP (e.g., "http://192.168.1.10:5000/")
+    // Find PC IP: Open CMD -> type 'ipconfig' -> find IPv4 Address
 
-    // CONFIGURED FOR: Physical Device (PC IP: 10.173.3.93)
-    private static final String BASE_URL = "http://10.173.3.93:5000/";
+    // Change this to your PC's actual IPv4 address
+    // Your PC IP: 10.18.234.93 (from ipconfig)
+    private static final String BASE_URL = "http://10.18.234.93:5000/";
 
     public static ApiService getService() {
         if (retrofit == null) {

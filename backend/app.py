@@ -1,131 +1,98 @@
 import os
-import sys
 import pickle
 import numpy as np
-import tensorflow as tf
 from flask import Flask, request, jsonify
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+from flask_cors import CORS
 
-from config import *
-from preprocessing import preprocess_text
+from preprocess import clean_text, tokenize_and_lemmatize
+from features import texts_to_padded_sequences
+from gensim.models import Word2Vec
+from tensorflow.keras.models import load_model
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for Android app requests
 
-# Global variables for artifacts
-model = None
-tokenizer = None
-tfidf_vectorizer = None
+# Load artifacts
+ART_PATH = os.path.join(os.path.dirname(__file__), '..', 'models')
+ART_PATH = os.path.abspath(ART_PATH)
+MODEL_PATH = os.path.join(ART_PATH, 'sms_model.h5')
+TOKENIZER_PATH = os.path.join(ART_PATH, 'tokenizer.pkl')
+TFIDF_PATH = os.path.join(ART_PATH, 'tfidf.pkl')
+W2V_PATH = os.path.join(ART_PATH, 'word2vec.model')
+
 
 def load_artifacts():
-    global model, tokenizer, tfidf_vectorizer
-    print("Loading artifacts...")
-    
-    if os.path.exists(MODEL_PATH):
-        model = load_model(MODEL_PATH)
-        print("Model loaded.")
+    global model, tokenizer, tfidf, w2v
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError('Model not found. Train and place models/sms_model.h5')
+    model = load_model(MODEL_PATH)
+    with open(TOKENIZER_PATH, 'rb') as f:
+        tokenizer = pickle.load(f)
+    with open(TFIDF_PATH, 'rb') as f:
+        tfidf = pickle.load(f)
+    if os.path.exists(W2V_PATH):
+        w2v = Word2Vec.load(W2V_PATH)
     else:
-        print(f"Model file not found at {MODEL_PATH}")
+        w2v = None
 
-    if os.path.exists(TOKENIZER_PATH):
-        with open(TOKENIZER_PATH, 'rb') as f:
-            tokenizer = pickle.load(f)
-        print("Tokenizer loaded.")
-    else:
-        print(f"Tokenizer file not found at {TOKENIZER_PATH}")
 
-    if os.path.exists(TFIDF_PATH):
-        with open(TFIDF_PATH, 'rb') as f:
-            tfidf_vectorizer = pickle.load(f)
-        print("TF-IDF Vectorizer loaded.")
-    else:
-        print(f"TF-IDF file not found at {TFIDF_PATH}")
+def extract_keywords(text, top_k=5):
+    # simple approach: return most informative tokens (by TF-IDF if available)
+    cleaned = clean_text(text)
+    toks = tokenize_and_lemmatize(cleaned)
+    keywords = []
+    for t in toks:
+        if any(k in t for k in ['free', 'click', 'call', 'urgent', 'win', 'won', 'prize']):
+            keywords.append(t)
+    keywords = list(dict.fromkeys(keywords))[:top_k]
+    return keywords
 
-def get_keywords(text):
-    """
-    Extracts keywords from the processed text using TF-IDF.
-    """
-    if not tfidf_vectorizer:
-        return []
-    
-    try:
-        tfidf_matrix = tfidf_vectorizer.transform([text])
-        feature_names = tfidf_vectorizer.get_feature_names_out()
-        
-        sorted_items = sorted(zip(tfidf_matrix.tocoo().col, tfidf_matrix.tocoo().data), 
-                              key=lambda x: (x[1], x[0]), reverse=True)
-        
-        keywords = [feature_names[idx] for idx, score in sorted_items[:3]]
-        return keywords
-    except Exception as e:
-        print(f"Error extracting keywords: {e}")
-        return []
 
 @app.route('/', methods=['GET'])
 def health_check():
+    """Health check endpoint for Android app to verify connection"""
     return jsonify({
         "status": "online",
         "message": "SMS Spam Detector API is running",
-        "artifacts_loaded": model is not None
+        "server_ip": "10.18.234.93"
     })
 
-import threading
-
-# Global lock for prediction thread safety on Windows
-prediction_lock = threading.Lock()
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    debug_path = r"c:\Users\Asus\Desktop\smstrain\sms_spam_project\backend\backend_debug.txt"
-    try:
-        data = request.get_json()
-        raw_message = data.get('message', '')
-        
-        with open(debug_path, "a") as f:
-            f.write(f"\n--- New Request: {raw_message} ---\n")
-            f.flush()
+    data = request.get_json(force=True)
+    msg = data.get('message', '')
+    if not msg:
+        return jsonify({'error': 'message field required'}), 400
 
-        if not raw_message:
-            return jsonify({"status": "error", "message": "No message", "data": None}), 400
+    cleaned = clean_text(msg)
+    toks = tokenize_and_lemmatize(cleaned)
+    joined = ' '.join(toks)
 
-        clean_text = preprocess_text(raw_message)
-        seq = tokenizer.texts_to_sequences([clean_text])
-        padded = pad_sequences(seq, maxlen=MAX_LEN)
-        
-        with prediction_lock:
-            prob = float(model.predict(padded)[0][0])
-        
-        is_spam = prob >= 0.5
-        prediction_label = "Spam" if is_spam else "Not Spam"
-        confidence = prob
-        confidence_percent = f"{int(confidence * 100)}%"
-        risk_level = "High" if confidence > 0.75 else ("Medium" if confidence > 0.5 else "Low")
-        
-        detected_keywords = get_keywords(clean_text)
-        
-        return jsonify({
-            "status": "success",
-            "message": "Success",
-            "data": {
-                "prediction": prediction_label,
-                "confidence": round(confidence, 4),
-                "confidence_percent": confidence_percent,
-                "risk_level": risk_level,
-                "detected_keywords": detected_keywords
-            }
-        })
+    seq = texts_to_padded_sequences(tokenizer, [joined], maxlen=100)
+    tfidf_vec = tfidf.transform([joined]).toarray()
 
-    except Exception as e:
-        import traceback
-        with open(debug_path, "a") as f:
-            f.write(f"ERROR: {str(e)}\n")
-            traceback.print_exc(file=f)
-            f.flush()
-        return jsonify({"status": "error", "message": str(e), "data": None}), 500
+    prob = float(model.predict([seq, tfidf_vec])[0][0])
+    pred_label = 'Spam' if prob >= 0.5 else 'Not Spam'
+    confidence = f"{prob*100:.1f}%" if prob >= 0.5 else f"{(1-prob)*100:.1f}%"
 
-# Load artifacts once at startup
-load_artifacts()
+    if prob >= 0.85:
+        risk = 'High'
+    elif prob >= 0.6:
+        risk = 'Medium'
+    else:
+        risk = 'Low'
+
+    keywords = extract_keywords(msg)
+
+    return jsonify({
+        'prediction': pred_label,
+        'confidence': confidence,
+        'risk_level': risk,
+        'keywords': keywords
+    })
+
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    load_artifacts()
+    app.run(host='0.0.0.0', port=5000, debug=True)

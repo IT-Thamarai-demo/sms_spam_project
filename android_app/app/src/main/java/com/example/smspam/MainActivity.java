@@ -79,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
         btnScan.setText("Scanning...");
 
         ApiService service = RetrofitClient.getService();
-        android.util.Log.d("SMS_SPAM", "Making API call to: http://10.173.3.93:5000/predict");
+        android.util.Log.d("SMS_SPAM", "Making API call to: http://10.18.234.93:5000/predict");
 
         service.predict(new PredictRequest(msg)).enqueue(new Callback<PredictResponse>() {
             @Override
@@ -129,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
                 userMessage += "1. Make sure backend server is running on port 5000\n";
                 userMessage += "2. Make sure phone and PC are on SAME Wi-Fi network\n";
                 userMessage += "3. Check firewall settings\n\n";
-                userMessage += "Current URL: http://10.173.3.93:5000/";
+                userMessage += "Current URL: http://10.18.234.93:5000/";
 
                 Toast.makeText(MainActivity.this, "Connection failed - Check logcat for details", Toast.LENGTH_LONG)
                         .show();

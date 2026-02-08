@@ -4,7 +4,8 @@ scikit-learn
 gensim
 nltk
 flask
-tensorflow-cpu
+flask-cors
+tensorflow
 keras
+pickle5
 requests
-gunicorn
